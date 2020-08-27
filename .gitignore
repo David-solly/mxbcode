@@ -1,4 +1,4 @@
 .env
 .vscode
 .docker_build/
-/vendor/
+
