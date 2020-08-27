@@ -1,16 +1,15 @@
 package main
 
 import (
+	mockendpoint "goprojects/MMAX/barcode-system/cmd/client/mock_endpoint"
 	"log"
 	"net/http"
 )
 
-var db = make(map[string]bool)
-var errchan = make(chan error)
-
 func main() {
+	var errchan = make(chan error)
 	go func() {
-		errchan <- http.ListenAndServe(":8080", getRouter())
+		errchan <- http.ListenAndServe(":8080", mockendpoint.GetRouter(false))
 	}()
 	log.Println(<-errchan)
 }

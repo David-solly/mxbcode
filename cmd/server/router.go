@@ -110,16 +110,10 @@ func generate(w http.ResponseWriter, r *http.Request) {
 func activate(w http.ResponseWriter, r *http.Request) {
 	sc := chi.URLParam(r, "shortcode")
 
-	validHex, err := regexp.MatchString(`^[a-fA-F0-9]{1,5}$`, sc)
-
-	if err != nil || !validHex {
-
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		write(w, toJSON(map[string]interface{}{
-			"error": fmt.Sprintf("invalid shortcode - %v", sc),
-		}))
+	if k := shortcodeValidate(w, sc); !k {
 		return
 	}
+
 	st, k, _ := c.Client.ReadCache(sc)
 	if k {
 		write(w, toJSON(map[string]interface{}{
@@ -161,6 +155,11 @@ func activate(w http.ResponseWriter, r *http.Request) {
 
 func view(w http.ResponseWriter, r *http.Request) {
 	sc := chi.URLParam(r, "shortcode")
+
+	if k := shortcodeValidate(w, sc); !k {
+		return
+	}
+
 	st, k, _ := c.Client.ReadCache(sc)
 	if !k {
 		write(w, toJSON(map[string]interface{}{
@@ -185,4 +184,19 @@ func toJSON(data map[string]interface{}) []byte {
 func write(w http.ResponseWriter, data []byte) {
 	w.Header().Add("Content-Type", "application/json")
 	w.Write([]byte(data))
+}
+
+func shortcodeValidate(w http.ResponseWriter, sc string) bool {
+	validHex, err := regexp.MatchString(`^[a-fA-F0-9]{1,5}$`, sc)
+
+	if err != nil || !validHex {
+
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		write(w, toJSON(map[string]interface{}{
+			"error": fmt.Sprintf("invalid shortcode - %v", sc),
+		}))
+		return false
+	}
+
+	return true
 }

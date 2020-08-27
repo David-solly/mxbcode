@@ -14,6 +14,15 @@ import (
 // set to a reachable redis instance
 //
 const globalRedis = "192.168.99.100:6379"
+const useRedis = false
+
+func TestMain(t *testing.M) {
+	fmt.Printf("Starting setup\n")
+	v := t.Run()
+	fmt.Printf("\nFinishing teardown\n")
+	os.Exit(v)
+
+}
 
 func TestInitialiseCache(t *testing.T) {
 	cache := Cache{}
@@ -32,6 +41,10 @@ func TestInitialiseCache(t *testing.T) {
 			{"INITIALISE - memory", "", false, true, &MemoryCache{}, ""},
 		}
 		for i, test := range suite {
+			if !useRedis && test.testName == "INITIALISE - redis" {
+				fmt.Println("Skipping redis check")
+				continue
+			}
 			t.Run(fmt.Sprintf("#%d: %q%q", i, test.testName, test.addr), func(t *testing.T) {
 				ok, err := cache.Initialise(test.addr, test.use)
 				if test.err == "" {
@@ -124,7 +137,7 @@ func TestStoreGenerateResposne(t *testing.T) {
 
 func TestStoreGenerateResposneREDIS(t *testing.T) {
 	c := Cache{}
-	c.Initialise(globalRedis, true)
+	c.Initialise(globalRedis, useRedis)
 	longDuration := time.Duration(time.Second * 10)
 	shortDuration := time.Duration(time.Millisecond * 300)
 	suite := []struct {
@@ -145,7 +158,7 @@ func TestStoreGenerateResposneREDIS(t *testing.T) {
 			k, err := c.Client.StoreDUIDGenResponse(test.data)
 			assert.NilError(t, err)
 			assert.DeepEqual(t, k, true)
-			// device, found, err := c.Client.StoreDUIDGenResponse(test.data.ShortCode)
+
 		})
 	}
 
@@ -188,7 +201,7 @@ func TestCache5chars(t *testing.T) {
 
 	rCache := Cache{}
 	// Redis endpoint - true flag to confirm redis as choice
-	rCache.Initialise(globalRedis, true)
+	rCache.Initialise(globalRedis, useRedis)
 
 	t.Run("SAVE and READ from CACHE", func(t *testing.T) {
 		suite := []struct {
@@ -260,7 +273,7 @@ func TestLastIDCache(t *testing.T) {
 	mCache.Initialise("", false)
 
 	rCache := Cache{}
-	rCache.Initialise(globalRedis, true)
+	rCache.Initialise(globalRedis, useRedis)
 	t.Run("SAVE last id to cache", func(t *testing.T) {
 		suite := []struct {
 			testName string

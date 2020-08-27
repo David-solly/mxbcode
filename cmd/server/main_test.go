@@ -2,13 +2,17 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"flag"
 	"fmt"
-	"net/http"
+	"net/http/httptest"
+	"os"
 	"os/exec"
+	"sync"
 	"testing"
 	"time"
 
-	"goprojects/MMAX/barcode-system/pkg/api/v1/cache"
+	mockendpoint "goprojects/MMAX/barcode-system/cmd/client/mock_endpoint"
 	"goprojects/MMAX/barcode-system/pkg/api/v1/generator"
 	"goprojects/MMAX/barcode-system/pkg/api/v1/models"
 
@@ -17,15 +21,45 @@ import (
 
 const tofMaxRequests = 10
 
+// Test flag to manually enable testing of a
+// redis instance
+//
+var testRedis = false
+
 // resets the listening server database
 // for testing responses
 //
 func reset() {
-	resp, err := http.Get(urlDebug)
+	resp, err := cl.Get(urlDebug)
 	if err != nil {
 		fmt.Print(err)
 	}
 	defer resp.Body.Close()
+
+}
+
+func TestMain(t *testing.M) {
+	fmt.Printf("Starting setup\n")
+
+	//Start mock endpoint server
+	//
+	ts := httptest.NewServer(mockendpoint.GetRouter(true))
+	ts.Client()
+	cl = ts.Client()
+	// Initialise cache
+	//
+	c.Initialise("", false)
+
+	tmp := url
+	url = ts.URL + "/sensor-onboarding-sample"
+	urlDebug = ts.URL
+	isPackageTest = true
+	v := t.Run()
+	ts.Close()
+
+	url = tmp
+	fmt.Printf("\nFinishing teardown\n")
+	os.Exit(v)
 
 }
 
@@ -41,16 +75,44 @@ func TestRunCli(t *testing.T) {
 
 	for i, test := range suite {
 		t.Run(fmt.Sprintf("#%d: %q", i, test.testName), func(t *testing.T) {
-			reset()
 			k := runGenerator(int64(test.want))
 			assert.Contains(t, k, test.resp)
 
 		})
 	}
+	mmax()
+}
+
+func TestMMaxFunction(t *testing.T) {
+	t.Run("Test command line flags", func(t *testing.T) {
+		suite := []struct {
+			testName string
+			contain  string
+			flag     string
+			value    string
+			err      string
+		}{
+			{"FLAG - ", "123A1", "l", "12345", ""},
+			{"FLAG - ", "123AA", "count", "10", ""},
+			{"FLAG - ", "{}", "count", "0", ""},
+		}
+
+		for i, test := range suite {
+			// Skip checking of redis databsase during full package test
+			//
+			t.Run(fmt.Sprintf("#%d: %q", i, test.testName), func(t *testing.T) {
+				flag.Set(test.flag, test.value)
+				dta := mmax()
+				assert.Contains(t, dta, test.contain)
+			})
+		}
+
+	})
+
 }
 
 func TestInitCacheInMain(t *testing.T) {
-	isPackageTest = true
+
 	t.Run("Initialise cache", func(t *testing.T) {
 		suite := []struct {
 			testName string
@@ -58,47 +120,68 @@ func TestInitCacheInMain(t *testing.T) {
 			url      string
 			err      string
 		}{
-			{"INITIALISE - ", true, "", ""},
-			{"INITIALISE - ", true, "192.168.99.100:6379", ""},
-			{"INITIALISE - ", false, "192.168.99.100:679", "refused"},
+
+			{"INITIALISE redis - ", true, "192.168.99.100:6379", ""},
+			{"INITIALISE redis - ", false, "192.168.99.100:679", "refused"},
 			{"INITIALISE - ", true, "", ""},
 		}
 
 		for i, test := range suite {
-			reset()
-			t.Run(fmt.Sprintf("#%d: %q", i, test.testName), func(t *testing.T) {
-				k, err := initCache(test.url)
-				assert.DeepEqual(t, k, test.want)
-				if test.err != "" {
-					assert.Error(t, err, test.err)
-				}
-			})
+			// Skip checking of redis databsase during full package test
+			//
+			if !testRedis && test.testName != "INITIALISE redis - " {
+				t.Run(fmt.Sprintf("#%d: %q", i, test.testName), func(t *testing.T) {
+					k, err := initCache(test.url)
+					assert.DeepEqual(t, k, test.want)
+					if test.err != "" {
+						assert.Error(t, err, test.err)
+					}
+				})
+			}
 		}
 	})
 }
 func TestGenerateCli(t *testing.T) {
+	reset()
 	// Using cache defined in main
-	c := cache.Cache{}
-	c.Initialise("", false)
-
+	// c := cache.Cache{}
+	// c.Initialise("", false)
+	hk := url
 	ch := make(chan bool)
+	chi := make(chan int, 1)
 
 	suite := []struct {
 		testName  string
-		want      int64
+		want      int
 		shortcode string
 		output    string
 		err       string
 	}{
-		{"GENERATE - ", 1, "00001", "{\"deveuis\":[", ""},
-		{"GENERATE - ", 100, "00002", "{\"deveuis\":[", ""},
-		{"GENERATE - ", 80, "00070", "{\"deveuis\":[", ""},
+		{"GENERATE - 1", 1, "00001", "{\"deveuis\":[", ""},
+		{"GENERATE - 10", 10, "0000D", "{\"deveuis\":[", ""},
+		{"GENERATE - 11", 11, "00018", "{\"deveuis\":[", ""},
+		{"GENERATE - 12", 12, "00024", "{\"deveuis\":[", ""},
+		{"GENERATE - 12", 12, "00030", "{\"deveuis\":[", ""},
+		{"GENERATE - 100", 100, "0006A", "{\"deveuis\":[", ""},
+		{"GENERATE - -1", 0, "{}", "{}", ""},
 	}
 
 	for i, test := range suite {
-		reset()
-		t.Run(fmt.Sprintf("#%d: %q", i, test.testName), func(t *testing.T) {
-			uids, err := generateBatchIDs(test.want, c, ch)
+		c.Client.Initialise()
+		if test.testName == "GENERATE - 10" {
+			// Pre register devices in generate range
+			// should automatically generate new values to compensate
+			// should return requested quantity
+			//
+			chi <- i
+			register("00005", hk, chi)
+			chi <- i
+			register("00022", hk, chi)
+			chi <- i
+			register("00007", hk, chi)
+		}
+		t.Run(fmt.Sprintf("\n#%d: %q", i, test.testName), func(t *testing.T) {
+			generated, uids, err := generateBatchIDs(int64(test.want), c, ch)
 			if test.err != "" {
 				assert.Error(t, err, test.err)
 
@@ -108,6 +191,13 @@ func TestGenerateCli(t *testing.T) {
 				assert.NilError(t, err)
 				assert.Contains(t, uids, test.shortcode)
 				assert.Contains(t, uids, test.output)
+				assert.Equal(t, generated, test.want)
+				if test.testName == "GENERATE - -1" {
+					assert.Equal(t, len(uids), 2)
+				} else {
+					assert.Equal(t, len(uids), (18)*test.want+13+test.want)
+				}
+
 			}
 
 		})
@@ -143,6 +233,7 @@ func TestRegisterFromCli(t *testing.T) {
 
 	for i, test := range suite {
 		reset()
+		c.Initialise("", false)
 		if i == len(suite)-1 {
 			go func() {
 				// Simulate interrupt signal
@@ -162,7 +253,8 @@ func TestRegisterFromCli(t *testing.T) {
 		}
 
 		t.Run(fmt.Sprintf("#%d: %q", i, test.testName), func(t *testing.T) {
-			uids, count, err := registerBatch(test.data, c, ch)
+			uidlist, count, err := registerBatch(test.data, c, ch, &models.RegisteredDevEUIList{})
+			uids, _ := json.Marshal(uidlist)
 			if test.err != "" {
 				assert.Error(t, err, test.err)
 
@@ -170,7 +262,7 @@ func TestRegisterFromCli(t *testing.T) {
 
 			if test.err == "" {
 				assert.NilError(t, err)
-				assert.Contains(t, uids, test.want)
+				assert.Contains(t, string(uids), test.want)
 				if i == len(suite)-2 {
 					assert.Equal(t, count != test.count, true)
 				} else {
@@ -214,7 +306,6 @@ func TestRegisterWithProvider(t *testing.T) {
 }
 
 func TestGenerateFromCMD(t *testing.T) {
-	// reset()
 	t.Run("Test main flow", func(t *testing.T) {
 		suite := []struct {
 			testName string
@@ -223,9 +314,9 @@ func TestGenerateFromCMD(t *testing.T) {
 			contains string
 			err      string
 		}{
-			{"RUN CMD - ", "go", []string{"run", ".", "-count=10"}, "deveui", ""},
-			{"RUN CMD - ", "go", []string{"run", "."}, "deveui", ""},
-			{"RUN CMD - ", "g", []string{"run", ".", "-count=10"}, "deveui", "not found"},
+			{"RUN CMD - ", "go", []string{"run", ".", "-count=10", "-reg-url=" + url}, "deveui", ""},
+			{"RUN CMD - ", "go", []string{"run", ".", "-reg-url=" + url}, "deveui", ""},
+			{"RUN CMD - ", "g", []string{"run", ".", "-count=10", "-reg-url=" + url}, "deveui", "not found"},
 		}
 
 		for i, test := range suite {
@@ -241,7 +332,7 @@ func TestGenerateFromCMD(t *testing.T) {
 					str := out.String()
 					assert.NilError(t, err)
 					assert.Contains(t, str, test.contains)
-					fmt.Println(str)
+
 				}
 
 			})
@@ -270,12 +361,16 @@ func TestToFRequests(t *testing.T) {
 		{"REGISTER WITH PROVIDER - ", "00001", "200 OK", 200, ""},
 	}
 
+	wg := sync.WaitGroup{}
+
 	for i, test := range suite {
 
 		t.Run(fmt.Sprintf("#%d: %q", i, test.testName), func(t *testing.T) {
 			for reqs := 0; reqs < 100; reqs++ {
 				tof <- i
 				go func() {
+					defer wg.Done()
+					wg.Add(1)
 					sc, result, err := register(test.shortcode, urlDebug, tof)
 					if test.err != "" {
 						assert.Error(t, err, test.err)
@@ -290,4 +385,5 @@ func TestToFRequests(t *testing.T) {
 
 		})
 	}
+	wg.Wait()
 }

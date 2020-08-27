@@ -70,7 +70,9 @@ func (c *MemoryCache) StoreLastDUID(model models.LastDevEUI) (bool, error) {
 // Creates a sleeping gorouting that will awake and delete
 // stored cached response found with 'k' only after 'duration'
 func (c *MemoryCache) StoreDUIDGenResponse(model models.ApiResponseCacheObject) (bool, error) {
+	c.client.mutex.Lock()
 	c.client.data[strings.ToUpper(model.Key)] = model.Response
+	c.client.mutex.Unlock()
 	go func(k string, duration time.Duration, c *MemoryCache) {
 		time.Sleep(duration)
 		c.client.mutex.Lock()

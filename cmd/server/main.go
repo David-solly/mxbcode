@@ -29,7 +29,7 @@ var (
 	// used for making requests to server
 	// global timeout available
 	//
-	cl = http.Client{}
+	cl = &http.Client{}
 
 	// Channels to interupt the program and signal
 	// when generation is complete
@@ -44,11 +44,21 @@ var (
 	url      string = "http://europe-west1-machinemax-dev-d524.cloudfunctions.net/sensor-onboarding-sample"
 )
 
-// Init a cahe
+// parse variable from commandline or exec command
+//
+var (
+	last  = flag.String("l", "", "Explicitly set the last shortcode of previous batch.\nThe next batch will begin from here")
+	reg   = flag.String("reg-url", "", "The registration endpoint url- \ndefault used if none is supplied")
+	count = flag.String("count", "", "Number of DevEUIs to generate")
+	addr  = flag.String("addr", "", "Bind address")
+	port  = flag.String("port", "", "Bind port")
+	redis = flag.String("redis-addr", "", "The address of the redis instance to use as a datacahe store")
+)
+
+// Init a cache
 // Initial REDIS url to bind to connect to
 // if blank, defaults to in memory cache
 //
-
 func init() {
 	// set client to in memory first
 	// aids in testing
@@ -71,20 +81,13 @@ func initCache(addr string) (bool, error) {
 }
 
 func main() {
+	mmax()
+}
+
+func mmax() (dta string) {
 	// default value to generate set to 100
 	//
 	var idCount int64 = gen.DefaultMaxToGenerate
-
-	// parse variable from commandline or exec command
-	//
-	var (
-		last  = flag.String("l", "", "Explicitly set the last shortcode of previous batch.\nThe next batch will begin from here")
-		reg   = flag.String("reg-url", "", "The registration endpoint url- \ndefault used if none is supplied")
-		count = flag.String("count", "", "Number of DevEUIs to generate")
-		addr  = flag.String("addr", "", "Bind address")
-		port  = flag.String("port", "", "Bind port")
-		redis = flag.String("redis-addr", "", "The address of the redis instance to use as a datacahe store")
-	)
 
 	flag.Parse() // parse supplied flags
 
@@ -133,7 +136,7 @@ func main() {
 		return
 	}
 
-	runGenerator(idCount)
+	return runGenerator(idCount)
 }
 
 func runGenerator(idCount int64) string {
@@ -143,7 +146,7 @@ func runGenerator(idCount int64) string {
 	// are provided
 	//
 	go func() {
-		s, err := generateBatchIDs(idCount, c, shutdown)
+		_, s, err := generateBatchIDs(idCount, c, shutdown)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -170,18 +173,36 @@ func runGenerator(idCount int64) string {
 	return data
 }
 
-func generateBatchIDs(count int64, c cache.Cache, ch chan bool) (string, error) {
-	ids, err := gen.GenerateDUIDBatch(int(count), c.Client)
-	if err != nil {
-		return "", err
+func generateBatchIDs(count int64, c cache.Cache, ch chan bool) (generated int, data string, err error) {
+	rd := 0
+	registered := models.RegisteredDevEUIList{
+		DevEUIs: []string{},
 	}
 
-	data, _, err := registerBatch(*ids, c, ch)
-	if err != nil {
-		return "", err
+	defer func() {
+		uids, _ := json.Marshal(registered)
+		data = string(uids)
+	}()
+
+	for int64(len(registered.DevEUIs)) < count {
+		select {
+		case <-ch:
+			count = -1
+		default:
+			ids, e := gen.GenerateDUIDBatch(int(count)-len(registered.DevEUIs), c.Client)
+			if e != nil {
+				return generated, data, e
+			}
+
+			registered, rd, err = registerBatch(*ids, c, ch, &registered)
+			if err != nil {
+				return
+			}
+			generated += rd
+		}
 	}
 
-	return data, nil
+	return
 }
 
 // loop through generated id's
@@ -189,7 +210,7 @@ func generateBatchIDs(count int64, c cache.Cache, ch chan bool) (string, error) 
 // keep track of count of routines
 // listen for SIGINT and return current tally
 //
-func registerBatch(batch []*models.DevEUI, c cache.Cache, sigint chan bool) (string, int, error) {
+func registerBatch(batch []*models.DevEUI, c cache.Cache, sigint chan bool, registered *models.RegisteredDevEUIList) (models.RegisteredDevEUIList, int, error) {
 
 	// monitor duplicates
 	//
@@ -199,9 +220,10 @@ func registerBatch(batch []*models.DevEUI, c cache.Cache, sigint chan bool) (str
 	tofMaxRequests := 10
 	tof := make(chan int, tofMaxRequests)
 
-	registered := models.RegisteredDevEUIList{
-		DevEUIs: []string{},
-	}
+	// Desired metrics
+	// output should match this amount
+	//
+
 	var wg sync.WaitGroup
 
 	for i, deveui := range batch {
@@ -217,9 +239,8 @@ func registerBatch(batch []*models.DevEUI, c cache.Cache, sigint chan bool) (str
 			// to the user
 			// save current registration point to cache
 			//
-			data, _ := json.Marshal(registered)
 			c.Client.StoreLastDUID(models.LastDevEUI{ShortCode: deveui.ShortCode})
-			return string(data), len(watch), nil
+			return *registered, len(watch), nil
 
 		default:
 			// sleep is a debug feature
@@ -268,9 +289,9 @@ func registerBatch(batch []*models.DevEUI, c cache.Cache, sigint chan bool) (str
 	// monitor buffer channel until depleted
 	//
 	wg.Wait()
+
 	fmt.Println("Generated and registered ", len(registered.DevEUIs))
-	data, _ := json.Marshal(registered)
-	return string(data), len(watch), nil
+	return *registered, len(watch), nil
 }
 
 // method that sends the request to the endpoint

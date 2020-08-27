@@ -43,6 +43,8 @@ func TestRouter(t *testing.T) {
 			{"GET", "/view/00001", nil, "code", 200},
 			{"GET", "/view/00001", nil, "body", "00001"},
 			{"GET", "/view/00000", nil, "body", "Not Found"},
+			{"GET", "/view/<something invalid>", nil, "body", "invalid shortcode"},
+			{"GET", "/view/<something invalid>", nil, "code", 422},
 			{"GET", "/activate/00001", nil, "code", 200},
 			{"GET", "/activate/-54-", nil, "body", "invalid shortcode"},
 			{"GET", "/activate/0ff01", nil, "code", 200},
@@ -95,16 +97,13 @@ func TestIdempotencyRouter(t *testing.T) {
 	// Requires server to be running before testing
 	// url endpoint
 	//
-	urlE := "http://127.0.0.1:8082"
+	//urlE := "http://127.0.0.1:8082"
 
 	// Context switching values depending on test run
 	// full package test tends to have higher values due
 	// to live caching
 	//
-	var a1, a2, a3 string = "0000E", "00009", "0003D"
-	if isPackageTest {
-		a1, a2, a3 = "00075", "00077", "000C1"
-	}
+	var a1, a2, a3 string = "0002F", "00032", "00078"
 
 	t.Run("TEST idempotency", func(t *testing.T) {
 		expected := []struct {
@@ -114,9 +113,10 @@ func TestIdempotencyRouter(t *testing.T) {
 			section string
 			want    interface{}
 		}{
-			{"GET", urlE + "/generate/50/a", nil, "body", a1},
-			{"GET", urlE + "/generate/50/a", nil, "body", a2},
-			{"GET", urlE + "/generate/70/a", nil, "body", a3},
+			{"GET", "/generate/50/a", nil, "body", a1},
+			{"GET", "/generate/50/a", nil, "body", a2},
+			{"GET", "/generate/70/a", nil, "body", a3},
+			{"GET", "/generate/70/a", nil, "body", a3},
 		}
 
 		rt := getRouter()
