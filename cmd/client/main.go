@@ -1,9 +1,10 @@
 package main
 
 import (
-	mockendpoint "goprojects/MMAX/barcode-system/cmd/client/mock_endpoint"
 	"log"
 	"net/http"
+
+	mockendpoint "github.com/David-solly/mxbcode/cmd/client/mock_endpoint"
 )
 
 func main() {

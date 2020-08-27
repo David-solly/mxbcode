@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"goprojects/MMAX/barcode-system/pkg/api/v1/models"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/David-solly/mxbcode/pkg/api/v1/models"
 
 	"github.com/docker/docker/pkg/testutil/assert"
 )

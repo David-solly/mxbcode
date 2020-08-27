@@ -4,13 +4,14 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
-	"goprojects/MMAX/barcode-system/pkg/api/v1/models"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/David-solly/mxbcode/pkg/api/v1/models"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"

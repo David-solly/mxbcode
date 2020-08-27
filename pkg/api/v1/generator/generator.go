@@ -3,13 +3,14 @@ package generator
 import (
 	"errors"
 	"fmt"
-	"goprojects/MMAX/barcode-system/pkg/api/v1/cache"
-	"goprojects/MMAX/barcode-system/pkg/api/v1/models"
 	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/David-solly/mxbcode/pkg/api/v1/cache"
+	"github.com/David-solly/mxbcode/pkg/api/v1/models"
 )
 
 // Maximum hex limit corresponding to

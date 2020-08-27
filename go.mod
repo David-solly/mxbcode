@@ -1,4 +1,4 @@
-module goprojects/MMAX/barcode-system
+module github.com/David-solly/mxbcode
 
 go 1.14
 

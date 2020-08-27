@@ -6,9 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"goprojects/MMAX/barcode-system/pkg/api/v1/cache"
-	gen "goprojects/MMAX/barcode-system/pkg/api/v1/generator"
-	"goprojects/MMAX/barcode-system/pkg/api/v1/models"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +15,10 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/David-solly/mxbcode/pkg/api/v1/cache"
+	gen "github.com/David-solly/mxbcode/pkg/api/v1/generator"
+	"github.com/David-solly/mxbcode/pkg/api/v1/models"
 )
 
 var (

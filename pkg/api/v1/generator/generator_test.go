@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"goprojects/MMAX/barcode-system/pkg/api/v1/cache"
-	"goprojects/MMAX/barcode-system/pkg/api/v1/models"
+	"github.com/David-solly/mxbcode/pkg/api/v1/cache"
+	"github.com/David-solly/mxbcode/pkg/api/v1/models"
 
 	"github.com/docker/docker/pkg/testutil/assert"
 )

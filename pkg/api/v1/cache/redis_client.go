@@ -3,10 +3,11 @@ package cache
 import (
 	"errors"
 	"fmt"
-	"goprojects/MMAX/barcode-system/pkg/api/v1/models"
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/David-solly/mxbcode/pkg/api/v1/models"
 
 	"github.com/go-redis/redis"
 )

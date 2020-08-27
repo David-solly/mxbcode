@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	mockendpoint "goprojects/MMAX/barcode-system/cmd/client/mock_endpoint"
-	"goprojects/MMAX/barcode-system/pkg/api/v1/generator"
-	"goprojects/MMAX/barcode-system/pkg/api/v1/models"
+	mockendpoint "github.com/David-solly/mxbcode/cmd/client/mock_endpoint"
+	"github.com/David-solly/mxbcode/pkg/api/v1/generator"
+	"github.com/David-solly/mxbcode/pkg/api/v1/models"
 
 	"github.com/docker/docker/pkg/testutil/assert"
 )

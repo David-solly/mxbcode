@@ -3,11 +3,12 @@ package mockendpoint
 import (
 	"encoding/json"
 	"fmt"
-	"goprojects/MMAX/barcode-system/pkg/api/v1/cache"
-	"goprojects/MMAX/barcode-system/pkg/api/v1/models"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/David-solly/mxbcode/pkg/api/v1/cache"
+	"github.com/David-solly/mxbcode/pkg/api/v1/models"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
