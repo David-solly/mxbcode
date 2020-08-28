@@ -4,7 +4,11 @@ Server implementation of the required functionality and stretch objectives.
 
 # Api endpoints
 
-### Requires the CLI to run in server mode
+### Requires the CLI to be run in server mode
+
+#### to run the cli in server mode add a port to the startup command
+
+`go run . -port=8082`- Doing so- exposes the API
 
 #### {URL}/generate/{reqid}
 
@@ -21,7 +25,7 @@ The endpoint should respond with a 200 for new registers and 422 if already regi
 
 ### Running the cli
 
-The cli does not require any arguments to generate a batch of 100, that is the default beahiour. There are several flags which are available to alter the behaviour;
+The cli does not require any arguments to generate a batch of 100, that is the default behaviour. There are several flags which are available to alter the behaviour;
 
 `-count` a custom amount to generate - limited to a max of 100 as per the spec. Attempting any higher numbers will result in an error.
 
@@ -38,9 +42,9 @@ The value will reset to 00000 upon termination unless backed by a redis cache.
 
 ### Running the server
 
-To run the CLI as a server - Supply a port number when running the app. eg - `go run . -port=8282` this will start the cli in server mode and expose the above generate endpoints.
+To run the CLI as a server - Supply a port number when running the app. eg - `go run . -port=8282` this will start the cli in server mode and expose the above API endpoints.
 
 ## Cache
 
-The cli includes an in-memory cache and has working bindings and tests for a Redis (expandable to other) database. The in-memory cache is cleared once the server is shutdown.
-To run with a known redis instance, supply the redis address flag with the redis endpoint - eg `-redis-addr=192.168.99.100:6379` .
+The cli includes an in-memory cache and has working bindings and tests for a Redis (expandable to other) database. The in-memory cache is cleared once the server is shutdown - however the last generated id is persisted to disk.
+To run with a known redis instance, supply the redis address flag with the redis endpoint at startup - eg `-redis-addr=192.168.99.100:6379` .
