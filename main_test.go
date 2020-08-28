@@ -13,6 +13,7 @@ import (
 	"time"
 
 	mockendpoint "github.com/David-solly/mxbcode/mock_lorawan_endpoint"
+	"github.com/David-solly/mxbcode/pkg/cache"
 	"github.com/David-solly/mxbcode/pkg/generator"
 	"github.com/David-solly/mxbcode/pkg/models"
 
@@ -43,7 +44,10 @@ func TestMain(t *testing.M) {
 	ts := httptest.NewServer(mockendpoint.GetLorawanRouter(true))
 	cl = ts.Client() //global http client
 	mockendpoint.DB.Initialise("", false)
+
 	c.Initialise("", false) // Initialise in-memory cache
+	tmpData, _, _ := c.Client.ReadCache(cache.LastUIDKey)
+	c.Client.StoreLastDUID(models.LastDevEUI{ShortCode: "00000"})
 
 	tmp := url
 	url = ts.URL + "/sensor-onboarding-sample"
@@ -58,8 +62,19 @@ func TestMain(t *testing.M) {
 
 	url = tmp
 	fmt.Printf("\nFinishing teardown\n")
+	c.Client.StoreLastDUID(models.LastDevEUI{ShortCode: tmpData})
+	if key, k := c.Client.(*cache.MemoryCache); k {
+		key.Persist()
+
+		c.Client.Initialise()
+	}
 	os.Exit(v)
 
+}
+
+//reset cache for testing purposes
+func resetCache() {
+	c.Client.StoreLastDUID(models.LastDevEUI{ShortCode: "00000"})
 }
 
 func TestRunCli(t *testing.T) {
@@ -134,7 +149,7 @@ func TestGenerateCli(t *testing.T) {
 	}
 
 	for i, test := range suite {
-		c.Client.Initialise()
+		resetCache()
 		if test.testName == "GENERATE - 10" {
 			// Pre register devices in generate range
 			// should automatically generate new values to compensate

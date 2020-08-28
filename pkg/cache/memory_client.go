@@ -1,8 +1,10 @@
 package cache
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +15,8 @@ import (
 // LastUIDKey :
 // Key for lookup of last generated UID in the cache store
 var LastUIDKey = strings.ToUpper("last-deveui")
+
+var persistFile = "persistfilefff-11-ff.dat"
 
 type MemoryCache struct {
 	client *Store
@@ -31,6 +35,19 @@ func (c MemoryCache) NewClient() *Store {
 
 func (c *MemoryCache) init() (string, error) {
 	c.client = c.NewClient()
+
+	data, err := ioutil.ReadFile(persistFile)
+	if err == nil {
+		dta := make(map[string]string)
+		if err := json.Unmarshal(data, &dta); err != nil {
+			fmt.Print("Reset count - ")
+		} else {
+			fmt.Printf("Restarted ")
+			c.client.data[LastUIDKey] = dta[LastUIDKey]
+		}
+
+	}
+
 	pong, _ := c.client.data["PING"]
 
 	fmt.Println("Memory store - Online ..........")
@@ -82,4 +99,9 @@ func (c *MemoryCache) StoreDUIDGenResponse(model models.ApiResponseCacheObject) 
 		return
 	}(model.Key, model.Timeout, c)
 	return true, nil
+}
+
+func (c *MemoryCache) Persist() error {
+	data, _ := json.Marshal(map[string]string{LastUIDKey: c.client.data[LastUIDKey]})
+	return ioutil.WriteFile(persistFile, data, 0777)
 }

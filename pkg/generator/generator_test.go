@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -12,11 +13,37 @@ import (
 	"github.com/docker/docker/pkg/testutil/assert"
 )
 
+var c = cache.Cache{}
+
+func TestMain(t *testing.M) {
+	fmt.Printf("Starting setup\n")
+
+	c.Initialise("", false) // Initialise in-memory cache
+	tmpData, _, _ := c.Client.ReadCache(cache.LastUIDKey)
+	c.Client.StoreLastDUID(models.LastDevEUI{ShortCode: "00000"})
+
+	v := t.Run()
+
+	fmt.Printf("\nFinishing teardown\n")
+	c.Client.StoreLastDUID(models.LastDevEUI{ShortCode: tmpData})
+
+	if key, k := c.Client.(*cache.MemoryCache); k {
+		key.Persist()
+
+		c.Client.Initialise()
+	}
+	os.Exit(v)
+
+}
+
+//reset cache for testing purposes
+func resetCache() {
+	c.Client.StoreLastDUID(models.LastDevEUI{ShortCode: "00000"})
+}
+
 // Generate 100 values
 func TestGenerateBatchValues(t *testing.T) {
 	dataType := &[]*models.DevEUI{}
-	c := cache.Cache{}
-	c.Initialise("", false)
 
 	t.Run("GENERATE BATCH DevEUIs", func(t *testing.T) {
 		suite := []struct {

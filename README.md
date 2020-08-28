@@ -4,6 +4,8 @@ Server implementation of the required functionality and stretch objectives.
 
 # Api endpoints
 
+### Requires the CLI to run in server mode
+
 #### {URL}/generate/{reqid}
 
 Supply any value for the reqid to keep your requests unique, use the same reqid to retrieve past responses.
@@ -15,7 +17,7 @@ Retrieves the full DevEUI from a shortcode - if one exists on the system.
 
 # LoraWan Endpoint
 
-The endpoint should respond with a 200 for new registers and 422 if already registered, currently it only issues 200 response code regardless of the status. I've created an optional mockup registration server to use for testing purposes if needed. it requires no arguments to run.
+The endpoint should respond with a 200 for new registers and 422 if already registered, currently it only issues 200 response code regardless of the status. I've created an optional mockup registration server to use for testing purposes if needed that performs as needed with 200 and 422 as appropriate. it requires no arguments to run.
 
 ### Running the cli
 
@@ -42,12 +44,3 @@ To run the CLI as a server - Supply a port number when running the app. eg - `go
 
 The cli includes an in-memory cache and has working bindings and tests for a Redis (expandable to other) database. The in-memory cache is cleared once the server is shutdown.
 To run with a known redis instance, supply the redis address flag with the redis endpoint - eg `-redis-addr=192.168.99.100:6379` .
-
-## Building the image
-
-Ensure go mod vendor is called to cache all dependencies locally. The build won't run otherwise.
-Removes the need to supply credentials for git/docker hub
-
-`MMAX\barcode-system$docker build -t mmax-bcode:latest . -f ./dockerfile.server`
-
-The Multi-stage docker file builds on a minimal alpine image so it's small approx ~13MB - however has no shell environment.

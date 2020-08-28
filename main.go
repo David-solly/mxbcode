@@ -138,6 +138,7 @@ func mmax() (dta string) {
 }
 
 func runGenerator(idCount int64) string {
+
 	fmt.Println("MMAX - BATCH DevEUI Generator")
 	var data string = ""
 	// Maximum default value to generate if no commandline args
@@ -183,6 +184,12 @@ func generateBatchIDs(count int64, c cache.Cache, ch chan bool) (generated int, 
 		uids, _ := json.Marshal(registered)
 		data = string(uids)
 		fmt.Println("Generated and registered ", len(registered.DevEUIs))
+		if generated > 0 {
+			if c, k := c.Client.(*cache.MemoryCache); k {
+				c.Persist()
+			}
+
+		}
 	}()
 
 	for int64(len(registered.DevEUIs)) < count && !shouldExit {
