@@ -14,8 +14,8 @@ func registerEndpoint(w http.ResponseWriter, r *http.Request) {
 	p, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal(p, &reqs)
 
-	//check db
-	_, k, _ := db.Client.ReadCache(reqs["deveui"])
+	//check DB
+	_, k, _ := DB.Client.ReadCache(reqs["deveui"])
 	if k {
 		w.WriteHeader(422)
 		w.Write([]byte("already registered"))
@@ -23,7 +23,7 @@ func registerEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write([]byte("OK"))
-	db.Client.StoreDUIDGenResponse(models.ApiResponseCacheObject{
+	DB.Client.StoreDUIDGenResponse(models.ApiResponseCacheObject{
 		Key:      reqs["deveui"],
 		Response: "true", Timeout: time.Duration(time.Hour * 1)})
 
@@ -31,7 +31,7 @@ func registerEndpoint(w http.ResponseWriter, r *http.Request) {
 
 func clearLorawanDatabase(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
-	db.Initialise("", false)
+	DB.Initialise("", false)
 }
 
 func baseOK(w http.ResponseWriter, r *http.Request) {

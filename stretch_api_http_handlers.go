@@ -1,4 +1,4 @@
-package stretchapi
+package main
 
 import (
 	"fmt"
@@ -36,7 +36,7 @@ func GenerateBatchHTTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := "hjjkj" // runGenerator(idsToGenerate) // Generate the  DevEUIs
+	data :=  runGenerator(idsToGenerate) // Generate the  DevEUIs
 	// store generated results temporarily
 	// in case of multiple requests
 	RequestCache.Client.StoreDUIDGenResponse(models.ApiResponseCacheObject{Key: requestKey, Response: data, Timeout: cacheDuration})

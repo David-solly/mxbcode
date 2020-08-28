@@ -10,12 +10,12 @@ import (
 	"github.com/go-chi/chi/middleware"
 )
 
-var db = &cache.Cache{}
+var DB = &cache.Cache{}
 
 // GetLorawanRouter :
 // Returns the mock lorawan endpoint http server router
 func GetLorawanRouter(silent bool) *chi.Mux {
-	db.Initialise("", false)
+	DB.Initialise("", false)
 	fmt.Println("\ngetting mock router")
 	r := chi.NewRouter()
 	if !silent {

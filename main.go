@@ -12,14 +12,12 @@ import (
 	"os/signal"
 	"regexp"
 	"strconv"
-	"strings"
-	"sync"
+
 	"syscall"
 
 	"github.com/David-solly/mxbcode/pkg/cache"
 	gen "github.com/David-solly/mxbcode/pkg/generator"
 	"github.com/David-solly/mxbcode/pkg/models"
-	stretchapi "github.com/David-solly/mxbcode/stretch_api"
 )
 
 var (
@@ -35,8 +33,10 @@ var (
 	// when generation is complete
 	//
 	interrupt = make(chan interface{})
-	complete  = make(chan bool)
+	complete  = make(chan bool, 2)
 	shutdown  = make(chan bool)
+
+	shouldExit bool = false
 
 	// LoRaWAN server endpoint or mock endpoint location
 	url      string = "http://127.0.0.1:8080/sensor-onboarding-sample"
@@ -103,6 +103,7 @@ func mmax() (dta string) {
 	// initialise the cahe accordingly-if address suplied - Redis
 	// otherwise in-memory
 	initCache(*redis)
+	RequestCache = c
 
 	if *last != "" {
 		validHex, _ := regexp.MatchString(`^[a-fA-F0-9]{1,5}$`, *last)
@@ -127,7 +128,7 @@ func mmax() (dta string) {
 	// run the http endpoint if the supplied flags match
 	if *port != "" && len(*port) >= 1 {
 
-		go http.ListenAndServe(*addr+":"+*port, stretchapi.GetRouter())
+		go http.ListenAndServe(*addr+":"+*port, GetRouter())
 		<-interrupt
 		log.Print("shutting down - server")
 		return
@@ -157,7 +158,9 @@ func runGenerator(idCount int64) string {
 	case <-interrupt:
 		{
 			fmt.Println("\nGraceful shutdown...")
+			shouldExit = true
 			shutdown <- true
+
 			<-complete
 
 		}
@@ -182,94 +185,25 @@ func generateBatchIDs(count int64, c cache.Cache, ch chan bool) (generated int, 
 		fmt.Println("Generated and registered ", len(registered.DevEUIs))
 	}()
 
-	for int64(len(registered.DevEUIs)) < count {
-		select {
-		case <-ch:
-			count = -1
-		default:
-			ids, e := gen.GenerateDUIDBatch(int(count)-len(registered.DevEUIs), c.Client)
-			if e != nil {
-				return generated, data, e
-			}
+	for int64(len(registered.DevEUIs)) < count && !shouldExit {
 
-			registered, _, err = registerBatch(*ids, c, ch, &registered)
-			if err != nil {
-				return
-			}
+		ids, e := gen.GenerateDUIDBatch(int(count)-len(registered.DevEUIs), c.Client)
+		if e != nil {
+			return generated, data, e
 		}
+
+		if count == 0 {
+			return
+		}
+
+		registered, _, err = registerBatch(*ids, c, ch, &registered)
+		if err != nil {
+			return
+		}
+
 	}
 
 	return
-}
-
-// loop through generated id's
-// register each one concurrently
-// keep track of count of routines
-// listen for SIGINT and return current tally
-//
-func registerBatch(batch []*models.DevEUI, c cache.Cache, sigint chan bool, registered *models.RegisteredDevEUIList) (models.RegisteredDevEUIList, int, error) {
-	m := sync.Mutex{}
-
-	tofMaxRequests := 10
-	tof := make(chan int, tofMaxRequests)
-
-	var wg sync.WaitGroup
-
-	for i, deveui := range batch {
-		select {
-		case _ = <-sigint:
-			// Wait for inflight requests to finish monitor buffer channel until depleted
-			wg.Wait()
-			fmt.Println("Generated and registered ", len(registered.DevEUIs))
-
-			// Output the completed and registered devices to the user
-			// save current shortcode value to cache
-			c.Client.StoreLastDUID(models.LastDevEUI{ShortCode: deveui.ShortCode})
-			return *registered, len(registered.DevEUIs), nil
-
-		default:
-			// sleep is a debug feature
-			// used to slow down requests to simulate
-			// slow connection and fill up the
-			// request buffer
-			// used to test ToF and graceful interrupt
-			//
-			// time.Sleep(100 * time.Millisecond)
-
-			// Start filling the buffered channel with values
-			// blocks when there are 10 and waits for free space
-			// maximum value can be adjusted accordingly
-			// Maximum of 10 concurrent requests as per spec
-			tof <- i
-
-			wg.Add(1)
-
-			// concurrently send requests to register device ids
-			go func(deveui *models.DevEUI) {
-				defer wg.Done()
-
-				// request parameters are in upper case hex as per request
-				_, code, err := register(strings.ToUpper(deveui.ShortCode), url, tof)
-				if err != nil {
-					fmt.Printf("Error registering %q:\n%s", deveui.ShortCode, err.Error())
-				}
-
-				if code == 200 {
-					m.Lock()
-					c.Client.StoreDUID(*deveui)
-					registered.DevEUIs = append(registered.DevEUIs, strings.ToUpper(deveui.DevEUI))
-					m.Unlock()
-				}
-
-			}(deveui)
-		}
-
-	}
-
-	// Wait for all inflight requests to finish
-	wg.Wait()
-
-	return *registered, len(registered.DevEUIs), nil
 }
 
 // method that sends the request to the endpoint

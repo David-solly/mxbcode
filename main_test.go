@@ -42,12 +42,16 @@ func TestMain(t *testing.M) {
 	//Start mock registration endpoint server
 	ts := httptest.NewServer(mockendpoint.GetLorawanRouter(true))
 	cl = ts.Client() //global http client
-
+	mockendpoint.DB.Initialise("", false)
 	c.Initialise("", false) // Initialise in-memory cache
 
 	tmp := url
 	url = ts.URL + "/sensor-onboarding-sample"
 	urlDebug = ts.URL
+
+	//stretch api
+	RequestCache.Initialise("", false)
+	rt = GetRouter()
 
 	v := t.Run()
 	ts.Close()
@@ -75,36 +79,6 @@ func TestRunCli(t *testing.T) {
 
 		})
 	}
-}
-
-func TestMMaxFunction(t *testing.T) {
-	t.Run("Test command line flags", func(t *testing.T) {
-		suite := []struct {
-			testName string
-			contain  string
-			flag     string
-			value    string
-			err      string
-		}{
-			{"FLAG - -l=12345", "123A1", "l", "12345", ""},
-			{"FLAG - -count=10", "123AA", "count", "10", ""},
-			{"FLAG - -count=0", "{}", "count", "0", ""},
-			{"FLAG - -count=abcd", "", "count", "abcd", ""},
-			{"FLAG - -port=8085", "", "port", "8085", ""},
-		}
-
-		for i, test := range suite {
-			// Skip checking of redis databsase during full package test
-			//
-			t.Run(fmt.Sprintf("#%d: %q", i, test.testName), func(t *testing.T) {
-				flag.Set(test.flag, test.value)
-				dta := mmax()
-				assert.Contains(t, dta, test.contain)
-			})
-		}
-
-	})
-
 }
 
 func TestInitCacheInMain(t *testing.T) {
@@ -200,8 +174,6 @@ func TestRegisterFromCli(t *testing.T) {
 
 	//generate 100 unique ID's
 	hundred, _ := generator.GenerateDUIDBatch(100, c.Client)
-	hundred2, _ := generator.GenerateDUIDBatch(100, c.Client)
-	hundred3, _ := generator.GenerateDUIDBatch(100, c.Client)
 	ch := make(chan bool)
 	suite := []struct {
 		testName string
@@ -219,8 +191,6 @@ func TestRegisterFromCli(t *testing.T) {
 			{DevEUI: "d19ef65832100005", ShortCode: "00005"},
 		}, 4, "\"D19EF65832100005\"", "OK", ""},
 		{"Register - ", *hundred, 100, "0003D\"", "OK", ""},
-		{"Register - ", *hundred2, 100, "0006F\"", "OK", ""},
-		{"Register - ", *hundred3, 100, "000CA\"", "OK", ""},
 	}
 
 	for i, test := range suite {
@@ -376,4 +346,34 @@ func TestToFRequests(t *testing.T) {
 		})
 	}
 	wg.Wait()
+}
+
+func TestMMaxFunction(t *testing.T) {
+	t.Run("Test command line flags", func(t *testing.T) {
+		suite := []struct {
+			testName string
+			contain  string
+			flag     string
+			value    string
+			err      string
+		}{
+			// {"FLAG - -addr=localhost", "", "reg-url", "localhost", ""},
+			{"FLAG - -l=12345", "", "l", "-4dcm", ""},
+			{"FLAG - -l=12345", "123A1", "l", "12345", ""},
+			{"FLAG - -count=10", "123AA", "count", "10", ""},
+			{"FLAG - -count=0", "{}", "count", "0", ""},
+			{"FLAG - -count=abcd", "", "count", "abcd", ""},
+			// {"FLAG - -port=8085", "", "port", "8085", ""},
+		}
+
+		for i, test := range suite {
+			t.Run(fmt.Sprintf("#%d: %q", i, test.testName), func(t *testing.T) {
+				flag.Set(test.flag, test.value)
+				dta := mmax()
+				assert.Contains(t, dta, test.contain)
+			})
+		}
+
+	})
+
 }

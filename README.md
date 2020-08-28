@@ -4,30 +4,18 @@ Server implementation of the required functionality and stretch objectives.
 
 # Api endpoints
 
-#### {URL}/generate/{count}/{uid}
+#### {URL}/generate/{reqid}
 
-Generates the DevEui list with a count and unique id- ID can be anything.
-A cache will be hit if the count and uid are equal and from the request orinates from the same host. Varying any one of these three parameters will result in a newly generated and registered set.
+Supply any value for the reqid to keep your requests unique, use the same reqid to retrieve past responses.
+This endpoint automatically generates 100 DevEUIs.
 
 #### {URL}/view/{shortcode}
 
 Retrieves the full DevEUI from a shortcode - if one exists on the system.
 
-#### {URL}/activate/{shortcode}
+# LoraWan Endpoint
 
-Activates a shortcode with the provider directly.
-
-# Testing
-
-To Run the server level tests - the registration endpoint needs to be accessible (registration url) - a sample web client is included that testing can be carried out against. This client should run on port 8080 taking no arguments. - located at `cmd/client/main.go`
-
-### Clearing the sample endpoint memory
-
-To clear the mock registration endpoint - send a blank 'Get' request to the base path. if on local host `http://localhost:8080/`
-
-## Api Testing
-
-To carry out API Endpoint tests situated in `cmd/server/router_test.go` - requires the main server to be running on port 8082, located at `cmd/server/main.go`
+The endpoint should respond with a 200 for new registers and 422 if already registered, currently it only issues 200 response code regardless of the status. I've created an optional mockup registration server to use for testing purposes if needed. it requires no arguments to run.
 
 ### Running the cli
 
@@ -48,8 +36,7 @@ The value will reset to 00000 upon termination unless backed by a redis cache.
 
 ### Running the server
 
-To run the server - Supply a port number and an optional bind address. This will override the `-count` argument if used together.
-`go run ./cmd/server/ -port=8082` - optional `-addr=my.bind.address`.
+To run the CLI as a server - Supply a port number when running the app. eg - `go run . -port=8282` this will start the cli in server mode and expose the above generate endpoints.
 
 ## Cache
 

@@ -1,10 +1,9 @@
-package stretchapi
+package main
 
 import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/docker/docker/pkg/testutil/assert"
@@ -12,14 +11,6 @@ import (
 )
 
 var rt *chi.Mux
-
-func TestMain(t *testing.M) {
-	RequestCache.Initialise("", false)
-	rt = GetRouter()
-
-	v := t.Run()
-	os.Exit(v)
-}
 
 func TestStretchAPI(t *testing.T) {
 	t.Run("TEST stretch api", func(t *testing.T) {
@@ -34,6 +25,7 @@ func TestStretchAPI(t *testing.T) {
 			{"GET", "/generate/a", "code", 200},
 			{"GET", "/generate/b", "code", 200},
 			{"GET", "/generate/b", "code", 200},
+			{"GET", "/view/0000b", "code", 422},
 			{"GET", "/g/20/a", "code", 404},
 		}
 
@@ -58,7 +50,7 @@ func TestStretchAPI(t *testing.T) {
 func TestStretchApiIdempotency(t *testing.T) {
 	// Expected shortcode endings of the 16-digit hex to be produced
 	// by the generator
-	var a1, a2, a3 string = "0002F", "00032", "00078"
+	var a1, a2, a3 string = "0002F", "00032", "00064"
 
 	t.Run("TEST idempotency", func(t *testing.T) {
 		expected := []struct {

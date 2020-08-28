@@ -1,4 +1,4 @@
-package stretchapi
+package main
 
 import (
 	"crypto/sha1"
