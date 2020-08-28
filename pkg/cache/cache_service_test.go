@@ -7,26 +7,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/David-solly/mxbcode/pkg/api/v1/models"
+	"github.com/David-solly/mxbcode/pkg/models"
 
 	"github.com/docker/docker/pkg/testutil/assert"
 )
 
-// set to a reachable redis instance
-//
+// set to a reachable redis instance if one is available
+// otherwise ignored
 const globalRedis = "192.168.99.100:6379"
 const useRedis = false
 
-func TestMain(t *testing.M) {
-	fmt.Printf("Starting setup\n")
-	v := t.Run()
-	fmt.Printf("\nFinishing teardown\n")
-	os.Exit(v)
-
-}
-
 func TestInitialiseCache(t *testing.T) {
-	cache := Cache{}
+	c := Cache{}
 	t.Run("INITIALISE cache", func(t *testing.T) {
 		suite := []struct {
 			testName  string
@@ -47,16 +39,16 @@ func TestInitialiseCache(t *testing.T) {
 				continue
 			}
 			t.Run(fmt.Sprintf("#%d: %q%q", i, test.testName, test.addr), func(t *testing.T) {
-				ok, err := cache.Initialise(test.addr, test.use)
+				ok, err := c.Initialise(test.addr, test.use)
 				if test.err == "" {
-					assert.NotNil(t, cache.Client)
+					assert.NotNil(t, c.Client)
 					assert.NilError(t, err)
 					assert.Equal(t, ok, test.want)
 					if !test.use {
-						assert.Equal(t, reflect.TypeOf(cache.Client), reflect.TypeOf(test.cacheType))
+						assert.Equal(t, reflect.TypeOf(c.Client), reflect.TypeOf(test.cacheType))
 					}
 					if test.use {
-						assert.Equal(t, reflect.TypeOf(cache.Client), reflect.TypeOf(test.cacheType))
+						assert.Equal(t, reflect.TypeOf(c.Client), reflect.TypeOf(test.cacheType))
 					}
 
 				} else {
@@ -68,7 +60,7 @@ func TestInitialiseCache(t *testing.T) {
 		t.Run("INITIALISE cache FAULT - redis", func(t *testing.T) {
 			os.Setenv("REDIS_DSN", "")
 			r := RedisCache{}
-			s, e := r.init()
+			s, e := r.Initialise()
 			assert.Equal(t, s, "")
 			assert.Error(t, e, "No address supplied")
 		})

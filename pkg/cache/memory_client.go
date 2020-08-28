@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/David-solly/mxbcode/pkg/api/v1/models"
+	"github.com/David-solly/mxbcode/pkg/models"
 )
 
 // LastUIDKey :

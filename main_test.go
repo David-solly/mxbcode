@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	mockendpoint "github.com/David-solly/mxbcode/cmd/client/mock_endpoint"
-	"github.com/David-solly/mxbcode/pkg/api/v1/generator"
-	"github.com/David-solly/mxbcode/pkg/api/v1/models"
+	mockendpoint "github.com/David-solly/mxbcode/mock_lorawan_endpoint"
+	"github.com/David-solly/mxbcode/pkg/generator"
+	"github.com/David-solly/mxbcode/pkg/models"
 
 	"github.com/docker/docker/pkg/testutil/assert"
 )
@@ -23,12 +23,10 @@ const tofMaxRequests = 10
 
 // Test flag to manually enable testing of a
 // redis instance
-//
 var testRedis = false
 
 // resets the listening server database
 // for testing responses
-//
 func reset() {
 	resp, err := cl.Get(urlDebug)
 	if err != nil {
@@ -41,19 +39,16 @@ func reset() {
 func TestMain(t *testing.M) {
 	fmt.Printf("Starting setup\n")
 
-	//Start mock endpoint server
-	//
-	ts := httptest.NewServer(mockendpoint.GetRouter(true))
-	ts.Client()
-	cl = ts.Client()
-	// Initialise cache
-	//
-	c.Initialise("", false)
+	//Start mock registration endpoint server
+	ts := httptest.NewServer(mockendpoint.GetLorawanRouter(true))
+	cl = ts.Client() //global http client
+
+	c.Initialise("", false) // Initialise in-memory cache
 
 	tmp := url
 	url = ts.URL + "/sensor-onboarding-sample"
 	urlDebug = ts.URL
-	isPackageTest = true
+
 	v := t.Run()
 	ts.Close()
 
@@ -80,7 +75,6 @@ func TestRunCli(t *testing.T) {
 
 		})
 	}
-	mmax()
 }
 
 func TestMMaxFunction(t *testing.T) {
@@ -92,9 +86,11 @@ func TestMMaxFunction(t *testing.T) {
 			value    string
 			err      string
 		}{
-			{"FLAG - ", "123A1", "l", "12345", ""},
-			{"FLAG - ", "123AA", "count", "10", ""},
-			{"FLAG - ", "{}", "count", "0", ""},
+			{"FLAG - -l=12345", "123A1", "l", "12345", ""},
+			{"FLAG - -count=10", "123AA", "count", "10", ""},
+			{"FLAG - -count=0", "{}", "count", "0", ""},
+			{"FLAG - -count=abcd", "", "count", "abcd", ""},
+			{"FLAG - -port=8085", "", "port", "8085", ""},
 		}
 
 		for i, test := range suite {
@@ -128,7 +124,6 @@ func TestInitCacheInMain(t *testing.T) {
 
 		for i, test := range suite {
 			// Skip checking of redis databsase during full package test
-			//
 			if !testRedis && test.testName != "INITIALISE redis - " {
 				t.Run(fmt.Sprintf("#%d: %q", i, test.testName), func(t *testing.T) {
 					k, err := initCache(test.url)
@@ -143,9 +138,7 @@ func TestInitCacheInMain(t *testing.T) {
 }
 func TestGenerateCli(t *testing.T) {
 	reset()
-	// Using cache defined in main
-	// c := cache.Cache{}
-	// c.Initialise("", false)
+
 	hk := url
 	ch := make(chan bool)
 	chi := make(chan int, 1)
@@ -172,7 +165,6 @@ func TestGenerateCli(t *testing.T) {
 			// Pre register devices in generate range
 			// should automatically generate new values to compensate
 			// should return requested quantity
-			//
 			chi <- i
 			register("00005", hk, chi)
 			chi <- i
@@ -346,8 +338,6 @@ func TestGenerateFromCMD(t *testing.T) {
 // decrement pool when request finishes
 // fill pool when space available
 // pass information through channels
-//
-//
 func TestToFRequests(t *testing.T) {
 	tofMaxRequests := 10
 	tof := make(chan int, tofMaxRequests)

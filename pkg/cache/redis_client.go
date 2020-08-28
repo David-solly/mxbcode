@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/David-solly/mxbcode/pkg/api/v1/models"
+	"github.com/David-solly/mxbcode/pkg/models"
 
 	"github.com/go-redis/redis"
 )

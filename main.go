@@ -16,20 +16,19 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/David-solly/mxbcode/pkg/api/v1/cache"
-	gen "github.com/David-solly/mxbcode/pkg/api/v1/generator"
-	"github.com/David-solly/mxbcode/pkg/api/v1/models"
+	"github.com/David-solly/mxbcode/pkg/cache"
+	gen "github.com/David-solly/mxbcode/pkg/generator"
+	"github.com/David-solly/mxbcode/pkg/models"
+	stretchapi "github.com/David-solly/mxbcode/stretch_api"
 )
 
 var (
 	// Application cache /store
-	//
 	c cache.Cache
 
 	// default http client
 	// used for making requests to server
 	// global timeout available
-	//
 	cl = &http.Client{}
 
 	// Channels to interupt the program and signal
@@ -38,8 +37,8 @@ var (
 	interrupt = make(chan interface{})
 	complete  = make(chan bool)
 	shutdown  = make(chan bool)
-	// API registration endpoint
-	//
+
+	// LoRaWAN server endpoint or mock endpoint location
 	url      string = "http://127.0.0.1:8080/sensor-onboarding-sample"
 	urlDebug string = "http://127.0.0.1:8080/"
 	// url      string = "http://europe-west1-machinemax-dev-d524.cloudfunctions.net/sensor-onboarding-sample"
@@ -68,16 +67,15 @@ func init() {
 }
 func initCache(addr string) (bool, error) {
 
-	// initialise and in memory store
+	// initialise an in memory store
 	// can be substituted for any data store
 	// satisfying the `Service` interface defined in
-	// pkg/api/v1/cache/cache_service.go
+	// pkg/cache/cache_service.go
 	if addr == "" {
 		return c.Initialise("", false)
 	}
 
-	//REDIS url to bind to connect to
-	//
+	//REDIS url to bind to if supplied
 	return c.Initialise(addr, true)
 }
 
@@ -102,10 +100,8 @@ func mmax() (dta string) {
 
 	}
 
-	// initialise the cahe accordingly
-	// if address suplied - Redis
-	// otherwise in memory
-	//
+	// initialise the cahe accordingly-if address suplied - Redis
+	// otherwise in-memory
 	initCache(*redis)
 
 	if *last != "" {
@@ -127,11 +123,11 @@ func mmax() (dta string) {
 		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 		interrupt <- fmt.Errorf("%s", <-c)
 	}()
+
 	// run the http endpoint if the supplied flags match
-	//
 	if *port != "" && len(*port) >= 1 {
 
-		go http.ListenAndServe(*addr+":"+*port, getRouter())
+		go http.ListenAndServe(*addr+":"+*port, stretchapi.GetRouter())
 		<-interrupt
 		log.Print("shutting down - server")
 		return
@@ -175,14 +171,15 @@ func runGenerator(idCount int64) string {
 }
 
 func generateBatchIDs(count int64, c cache.Cache, ch chan bool) (generated int, data string, err error) {
-	rd := 0
 	registered := models.RegisteredDevEUIList{
 		DevEUIs: []string{},
 	}
 
 	defer func() {
+		generated = len(registered.DevEUIs)
 		uids, _ := json.Marshal(registered)
 		data = string(uids)
+		fmt.Println("Generated and registered ", len(registered.DevEUIs))
 	}()
 
 	for int64(len(registered.DevEUIs)) < count {
@@ -195,11 +192,10 @@ func generateBatchIDs(count int64, c cache.Cache, ch chan bool) (generated int, 
 				return generated, data, e
 			}
 
-			registered, rd, err = registerBatch(*ids, c, ch, &registered)
+			registered, _, err = registerBatch(*ids, c, ch, &registered)
 			if err != nil {
 				return
 			}
-			generated += rd
 		}
 	}
 
@@ -212,36 +208,24 @@ func generateBatchIDs(count int64, c cache.Cache, ch chan bool) (generated int, 
 // listen for SIGINT and return current tally
 //
 func registerBatch(batch []*models.DevEUI, c cache.Cache, sigint chan bool, registered *models.RegisteredDevEUIList) (models.RegisteredDevEUIList, int, error) {
-
-	// monitor duplicates
-	//
-	watch := make(map[string]string)
 	m := sync.Mutex{}
 
 	tofMaxRequests := 10
 	tof := make(chan int, tofMaxRequests)
-
-	// Desired metrics
-	// output should match this amount
-	//
 
 	var wg sync.WaitGroup
 
 	for i, deveui := range batch {
 		select {
 		case _ = <-sigint:
-			// Wait for inflight requests to finish
-			// monitor buffer channel until depleted
-			//
+			// Wait for inflight requests to finish monitor buffer channel until depleted
 			wg.Wait()
 			fmt.Println("Generated and registered ", len(registered.DevEUIs))
 
-			// Output the completed and registered devices
-			// to the user
-			// save current registration point to cache
-			//
+			// Output the completed and registered devices to the user
+			// save current shortcode value to cache
 			c.Client.StoreLastDUID(models.LastDevEUI{ShortCode: deveui.ShortCode})
-			return *registered, len(watch), nil
+			return *registered, len(registered.DevEUIs), nil
 
 		default:
 			// sleep is a debug feature
@@ -256,27 +240,23 @@ func registerBatch(batch []*models.DevEUI, c cache.Cache, sigint chan bool, regi
 			// blocks when there are 10 and waits for free space
 			// maximum value can be adjusted accordingly
 			// Maximum of 10 concurrent requests as per spec
-			//
 			tof <- i
 
-			// concurrently send requests to register device ids
-			//
 			wg.Add(1)
+
+			// concurrently send requests to register device ids
 			go func(deveui *models.DevEUI) {
 				defer wg.Done()
-				// in++
+
 				// request parameters are in upper case hex as per request
-				//
 				_, code, err := register(strings.ToUpper(deveui.ShortCode), url, tof)
 				if err != nil {
 					fmt.Printf("Error registering %q:\n%s", deveui.ShortCode, err.Error())
 				}
 
 				if code == 200 {
-					// c.Client.StoreDUID(*deveui)
 					m.Lock()
 					c.Client.StoreDUID(*deveui)
-					watch[strings.ToUpper(deveui.ShortCode)] = strings.ToUpper(deveui.DevEUI)
 					registered.DevEUIs = append(registered.DevEUIs, strings.ToUpper(deveui.DevEUI))
 					m.Unlock()
 				}
@@ -286,22 +266,18 @@ func registerBatch(batch []*models.DevEUI, c cache.Cache, sigint chan bool, regi
 
 	}
 
-	// Wait for inflight requests to finish
-	// monitor buffer channel until depleted
-	//
+	// Wait for all inflight requests to finish
 	wg.Wait()
 
-	fmt.Println("Generated and registered ", len(registered.DevEUIs))
-	return *registered, len(watch), nil
+	return *registered, len(registered.DevEUIs), nil
 }
 
 // method that sends the request to the endpoint
-// deals with registering the 5 character code
-// pops the in flight queue when done `<-ch`
-//
+// deals with registering the 5 character code with the LoRaWAN provider
+// pops the in-flight queue when done `<-ch`
 func register(shortcode, url string, ch chan int) (string, int, error) {
 	// pop item from channel buffer on completion
-	//
+	// used to let the time of flight counter to decrease
 	defer func() {
 		<-ch
 	}()

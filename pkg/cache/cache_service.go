@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/David-solly/mxbcode/pkg/api/v1/models"
+	"github.com/David-solly/mxbcode/pkg/models"
 )
 
 // Cache :
