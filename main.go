@@ -39,9 +39,9 @@ var (
 	shouldExit bool = false
 
 	// LoRaWAN server endpoint or mock endpoint location
-	url      string = "http://127.0.0.1:8080/sensor-onboarding-sample"
+	// url      string = "http://127.0.0.1:8080/sensor-onboarding-sample"
 	urlDebug string = "http://127.0.0.1:8080/"
-	// url      string = "http://europe-west1-machinemax-dev-d524.cloudfunctions.net/sensor-onboarding-sample"
+	url      string = "http://europe-west1-machinemax-dev-d524.cloudfunctions.net/sensor-onboarding-sample"
 )
 
 // parse variable from commandline or exec command
