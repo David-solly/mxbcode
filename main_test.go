@@ -14,7 +14,6 @@ import (
 
 	mockendpoint "github.com/David-solly/mxbcode/mock_lorawan_endpoint"
 	"github.com/David-solly/mxbcode/pkg/cache"
-	"github.com/David-solly/mxbcode/pkg/generator"
 	"github.com/David-solly/mxbcode/pkg/models"
 
 	"github.com/docker/docker/pkg/testutil/assert"
@@ -141,10 +140,6 @@ func TestGenerateCli(t *testing.T) {
 	}{
 		{"GENERATE - 1", 1, "00001", "{\"deveuis\":[", ""},
 		{"GENERATE - 10", 10, "0000D", "{\"deveuis\":[", ""},
-		{"GENERATE - 11", 11, "00018", "{\"deveuis\":[", ""},
-		{"GENERATE - 12", 12, "00024", "{\"deveuis\":[", ""},
-		{"GENERATE - 12", 12, "00030", "{\"deveuis\":[", ""},
-		{"GENERATE - 100", 100, "0006A", "{\"deveuis\":[", ""},
 		{"GENERATE - -1", 0, "{}", "{}", ""},
 	}
 
@@ -186,9 +181,6 @@ func TestGenerateCli(t *testing.T) {
 }
 
 func TestRegisterFromCli(t *testing.T) {
-
-	//generate 100 unique ID's
-	hundred, _ := generator.GenerateDUIDBatch(100, c.Client)
 	ch := make(chan bool)
 	suite := []struct {
 		testName string
@@ -199,18 +191,11 @@ func TestRegisterFromCli(t *testing.T) {
 		err      string
 	}{
 		{"Register - ", []*models.DevEUI{{DevEUI: "d19ef65832100001", ShortCode: "00001"}}, 1, "{\"deveuis\":[\"D19EF65832100001\"]}", "OK", ""},
-		{"Register - ", []*models.DevEUI{
-			{DevEUI: "d19ef65832100002", ShortCode: "00002"},
-			{DevEUI: "d19ef65832100003", ShortCode: "00003"},
-			{DevEUI: "d19ef65832100004", ShortCode: "00004"},
-			{DevEUI: "d19ef65832100005", ShortCode: "00005"},
-		}, 4, "\"D19EF65832100005\"", "OK", ""},
-		{"Register - ", *hundred, 100, "0003D\"", "OK", ""},
 	}
 
 	for i, test := range suite {
 		reset()
-		c.Initialise("", false)
+		resetCache()
 		if i == len(suite)-1 {
 			go func() {
 				// Simulate interrupt signal
@@ -218,14 +203,6 @@ func TestRegisterFromCli(t *testing.T) {
 				time.Sleep(time.Duration(time.Millisecond * 15))
 				interrupt <- true
 
-			}()
-		}
-		if i == len(suite)-2 {
-			go func() {
-				// Simulate interrupt signal
-				//
-				time.Sleep(time.Duration(time.Millisecond * 1))
-				ch <- true
 			}()
 		}
 
@@ -263,7 +240,6 @@ func TestRegisterWithProvider(t *testing.T) {
 	}{
 		{"REGISTER WITH PROVIDER - ", "FFFF1", "200 OK", 200, ""},
 		{"REGISTER WITH PROVIDER - ", "FFFF2", "200 OK", 200, ""},
-		// {"REGISTER WITH PROVIDER - ", "00001", "422 Unprocessable Entity", 422, ""},
 	}
 
 	for i, test := range suite {

@@ -26,7 +26,7 @@ func GetLorawanRouter(silent bool) *chi.Mux {
 		r.Use(middleware.Throttle(11))
 	}
 
-	r.Use(middleware.Timeout(1 * time.Second))
+	r.Use(middleware.Timeout(300 * time.Second))
 	r.Get("/", clearLorawanDatabase)
 	r.Post("/", baseOK)
 	r.Post("/sensor-onboarding-sample", registerEndpoint)
